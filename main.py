@@ -31,18 +31,16 @@ handlers = [sink_handler, base_log_file_handler, colorised_log_file_handler]
 logger.configure(handlers=handlers)
 
 HEADERS = {'Authorization': f'Bearer {os.getenv("TOKEN")}'}
-API_URL = 'https://pixels.pythondiscord.com/{0}'.format
-
-URL = t.TypeVar('URL', str, bytes)
+API_URL = 'https://pixels.pythondiscord.com/'
 
 
 def request(func: t.Callable[..., requests.Response]
-            ) -> t.Callable[[URL], requests.Response]:
-    """Log requests and responses and handle rate-limits."""
+            ) -> t.Callable[[str], requests.Response]:
+    """Handle logging, url completion and rate-limits."""
     @functools.wraps(func)
-    def request(url: URL) -> requests.Response:
+    def request(url: str) -> requests.Response:
         logger.debug('Sending {0} request to {1}', func.__name__.upper(), url)
-        response = func(url, headers=HEADERS)
+        response = func(API_URL + url, headers=HEADERS)
 
         try:
             response.raise_for_status()
@@ -58,8 +56,9 @@ def request(func: t.Callable[..., requests.Response]
 get = request(requests.get)
 post = request(requests.post)
 
-board = get(API_URL('get_pixels'))
-size_json = get(API_URL('get_size')).json()
+
+board = get('get_pixels')
+size_json = get('get_size').json()
 size = size_json['width'], size_json['height']
 
 img = Image.frombytes(
