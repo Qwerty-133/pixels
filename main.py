@@ -14,17 +14,25 @@ from loguru import logger
 
 LOG_FILE = Path('all.log')
 
+log_format = (
+    '<green>{HH:mm:ss.SSS}</green> | '
+    '<level>{level: <8}</level> | '
+    '<level>{message}</level>'
+)
+
 sink_handler = {
     'sink': stderr,
     'level': 'INFO',
     'backtrace': False,
-    'diagnose': False
+    'diagnose': False,
+    'format': log_format
 }
 base_log_file_handler = {
     'sink': LOG_FILE,
     'level': 'TRACE',
     'rotation': '1 day',
-    'retention': 0
+    'retention': 0,
+    'format': log_format
 }
 colorised_log_file_handler = base_log_file_handler | {
     'sink': LOG_FILE.with_stem(f'colorised-{LOG_FILE.stem}'),
