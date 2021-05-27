@@ -1,7 +1,7 @@
 import functools
 import itertools
 import os
-import random
+import reprlib
 import time
 import typing as t
 from pathlib import Path
@@ -45,14 +45,15 @@ def request(func: t.Callable[..., requests.Response]
         logger.debug('Sending {0} request to {1}', func.__name__.upper(), url)
         response = func(API_URL + url, headers=HEADERS, **kwargs)
 
+        logger.trace('Recieved response headers={0} content={1}',
+                     response.headers, reprlib.repr(response.content))
+
         try:
             response.raise_for_status()
         except requests.HTTPError:
             logger.exception('Exception when sending request:')
             raise
 
-        logger.trace('Recieved response headers={0} content={1}',
-                     response.headers, response.content)
         return response
     return request
 
@@ -76,6 +77,9 @@ class Pixel(t.NamedTuple):
 
 drawing = Image.open('draw.png').convert('RGB')
 
+latest_change = None
+difference_num = 0
+
 while True:
     board_response = get('get_pixels')
     size_json = get('get_size').json()
@@ -98,9 +102,14 @@ while True:
                                  to_hex(drawing_pixel))
             differences.append(change_pixel)
 
-    logger.debug('Remaining changes: {0}', differences)
+    logger.debug('Remaining changes: {0}', reprlib.repr(differences))
     logger.info('{0} changes remaining.', len(differences))
-    to_change = random.choice(differences)
+
+    to_change = differences[difference_num]
+    if latest_change and to_change == latest_change:
+        difference_num += 1
+    latest_change = to_change
+
     logger.debug('Attempting to change {0}', to_change)
 
     data = {'x': to_change.x, 'y': to_change.y, 'rgb': to_change.rgb}
