@@ -1,6 +1,7 @@
 import functools
 import itertools
 import os
+import random
 import reprlib
 import time
 import typing as t
@@ -77,9 +78,6 @@ class Pixel(t.NamedTuple):
 
 drawing = Image.open('draw.png').convert('RGB')
 
-latest_change = None
-difference_num = 0
-
 while True:
     board_response = get('get_pixels')
     size_json = get('get_size').json()
@@ -105,11 +103,7 @@ while True:
     logger.debug('Remaining changes: {0}', reprlib.repr(differences))
     logger.info('{0} changes remaining.', len(differences))
 
-    to_change = differences[difference_num]
-    if latest_change and to_change == latest_change:
-        difference_num += 1
-    latest_change = to_change
-
+    to_change = random.choice(differences)
     logger.debug('Attempting to change {0}', to_change)
 
     data = {'x': to_change.x, 'y': to_change.y, 'rgb': to_change.rgb}
