@@ -40,9 +40,13 @@ def image_differences(left: Image.Image,
 
     differences: list[Pixel] = []
     for x, y in itertools.product(range(second_width), range(second_height)):
-        right_pixel = right.getpixel((x, y))
         left_coord = offset_x + x, offset_y + y
-        left_pixel = left.getpixel(left_coord)
+
+        try:
+            right_pixel = right.getpixel((x, y))
+            left_pixel = left.getpixel(left_coord)
+        except IndexError:
+            continue
 
         if left_pixel != right_pixel:
             differences.append(Pixel(*left_coord, to_hex(right_pixel)))
