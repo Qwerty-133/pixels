@@ -24,6 +24,6 @@ pre-commit = "*"
 python_version = "3.9"
 
 [scripts]
-start = "python -m main"
+start = "python -m pixels"
 precommit = "pre-commit install"
 lint = "pre-commit run --all-files"
