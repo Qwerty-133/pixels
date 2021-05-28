@@ -45,7 +45,7 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
     path: The path to the image.
     linear: Whether pixels should be filled linearly or randomly.
     """
-    drawing = Image.open(path).convert('RGB')
+    drawing = Image.open(path).convert('RGBA')
     while True:
         board_response = get('get_pixels')
         size_json = get('get_size').json()

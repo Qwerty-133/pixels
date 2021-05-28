@@ -26,7 +26,9 @@ def image_differences(left: Image.Image,
                       ) -> list[Pixel]:
     """Fetch pixels to change in the left image to obtain the right.
 
-    The images must be in the RGB mode.
+    The images must be in the RGB mode. Although the right image can be
+    in the RGBA mode in which case fully transparent pixels are
+    ignored.
 
     The offset is used to determine the starting point of the area
     from the first provided image. The area must be enough to cover
@@ -41,12 +43,14 @@ def image_differences(left: Image.Image,
     differences: list[Pixel] = []
     for x, y in itertools.product(range(second_width), range(second_height)):
         left_coord = offset_x + x, offset_y + y
+        left_pixel = list(left.getpixel(left_coord))
 
-        try:
-            right_pixel = right.getpixel((x, y))
-            left_pixel = left.getpixel(left_coord)
-        except IndexError:
-            continue
+        right_pixel = right.getpixel((x, y))
+        if len(right_pixel) == 4:
+            *right_pixel, opaque = right_pixel
+            if not opaque:
+                # Doesn't get counted as a difference
+                right_pixel = left_pixel
 
         if left_pixel != right_pixel:
             differences.append(Pixel(*left_coord, to_hex(right_pixel)))
@@ -56,9 +60,9 @@ def image_differences(left: Image.Image,
 
 def ratelimit_wait(responses: t.Iterable[requests.Response]) -> None:
     """Sleep to not exceed ratelimits for the given API responses."""
-    remaining_reqs = [int(resp.headers['Requests-Remaining'])
+    remaining_reqs = [float(resp.headers['Requests-Remaining'])
                       for resp in responses]
     if not all(remaining_reqs):
-        resets = [int(resp.headers['Requests-Reset'])
+        resets = [float(resp.headers['Requests-Reset'])
                   for resp in responses]
         time.sleep(max(resets))
