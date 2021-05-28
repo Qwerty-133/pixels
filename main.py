@@ -54,8 +54,10 @@ def request(func: t.Callable[..., requests.Response]
         logger.debug('Sending {0} request to {1}', func.__name__.upper(), url)
         response = func(API_URL + url, headers=HEADERS, **kwargs)
 
-        logger.trace('Recieved response headers={0} content={1}',
-                     response.headers, reprlib.repr(response.content))
+        logger.opt(lazy=True).trace(
+            'Recieved response headers={0} content={1}',
+            lambda: response.headers, lambda: reprlib.repr(response.content)
+        )
 
         try:
             response.raise_for_status()
@@ -111,7 +113,9 @@ while True:
     responses = [board_response]
 
     if differences:
-        logger.debug('Remaining changes: {0}', reprlib.repr(differences))
+        logger.opt(lazy=True).debug(
+            'Remaining changes: {0}', lambda: reprlib.repr(differences)
+        )
         logger.info('{0} changes remaining.', len(differences))
 
         to_change = random.choice(differences)
