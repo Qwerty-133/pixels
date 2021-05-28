@@ -48,7 +48,7 @@ API_URL = 'https://pixels.pythondiscord.com/'
 
 def request(func: t.Callable[..., requests.Response]
             ) -> t.Callable[[str], requests.Response]:
-    """Handle logging, url completion and rate-limits."""
+    """Handle logging and append the api url before each request."""
     @functools.wraps(func)
     def request(url: str, **kwargs: t.Any) -> requests.Response:
         logger.debug('Sending {0} request to {1}', func.__name__.upper(), url)
