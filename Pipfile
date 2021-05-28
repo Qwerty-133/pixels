@@ -5,8 +5,9 @@ name = "pypi"
 
 [packages]
 pillow = "*"
-requests = "*"
 loguru = "*"
+requests = "*"
+fire = "*"
 
 [dev-packages]
 flake8 = "*"
