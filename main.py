@@ -15,7 +15,7 @@ from loguru import logger
 LOG_FILE = Path('all.log')
 
 log_format = (
-    '<green>{HH:mm:ss.SSS}</green> | '
+    '<green>{time:HH:mm:ss.SSS}</green> | '
     '<level>{level: <8}</level> | '
     '<level>{message}</level>'
 )
@@ -108,17 +108,22 @@ while True:
                                  to_hex(drawing_pixel))
             differences.append(change_pixel)
 
-    logger.debug('Remaining changes: {0}', reprlib.repr(differences))
-    logger.info('{0} changes remaining.', len(differences))
+    responses = [board_response]
 
-    to_change = random.choice(differences)
-    logger.debug('Attempting to change {0}', to_change)
+    if differences:
+        logger.debug('Remaining changes: {0}', reprlib.repr(differences))
+        logger.info('{0} changes remaining.', len(differences))
 
-    data = {'x': to_change.x, 'y': to_change.y, 'rgb': to_change.rgb}
-    post_response = post('set_pixel', json=data)
-    logger.info(post_response.json()['message'])
+        to_change = random.choice(differences)
+        logger.debug('Attempting to change {0}', to_change)
 
-    responses = [board_response, post_response]
+        data = {'x': to_change.x, 'y': to_change.y, 'rgb': to_change.rgb}
+        post_response = post('set_pixel', json=data)
+        logger.info(post_response.json()['message'])
+        responses.append(post_response)
+    else:
+        logger.debug('Doing nothing as no changes can be made.')
+
     remaining_reqs = [int(resp.headers['Requests-Remaining'])
                       for resp in responses]
     if not all(remaining_reqs):
