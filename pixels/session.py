@@ -40,3 +40,4 @@ def request(func: t.Callable[..., requests.Response],
 
 get = request(session.get, API_URL)
 post = request(session.post, API_URL)
+head = request(session.head, API_URL)

@@ -1,10 +1,12 @@
 import random
 import reprlib
+import time
 
 from PIL import Image
 from loguru import logger
-from pixels.session import get, post
-from pixels.utils import image_differences, ratelimit_wait
+from pixels.session import get, head, post
+from pixels.utils import (image_differences, ratelimit_duration_left,
+                          ratelimit_wait)
 
 
 def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
@@ -15,6 +17,13 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
     linear: Whether pixels should be filled linearly or randomly.
     """
     drawing = Image.open(path).convert('RGBA')
+
+    current_ratelimits = [head('get_pixels'), head('set_pixel')]
+    to_wait = ratelimit_duration_left(current_ratelimits)
+    if to_wait:
+        logger.info('Waiting for {0} seconds.', to_wait)
+        time.sleep(to_wait)
+
     while True:
         board_response = get('get_pixels')
         size_json = get('get_size').json()

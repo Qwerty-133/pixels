@@ -58,19 +58,24 @@ def image_differences(left: Image.Image,
     return differences
 
 
+def ratelimit_duration_left(responses: t.Iterable[requests.Response]) -> float:
+    """Return the duration to wait before sending another request."""
+    wait_periods = [float(resp.headers['Requests-Remaining'])
+                    for resp in responses]
+    if not all(duration > 0 for duration in wait_periods):
+        # Not all of the responses have at least one request remaining.
+        resets = [float(resp.headers['Requests-Reset'])
+                  for resp in responses]
+        return max(resets)
+
+    return 0
+
+
 def ratelimit_wait(responses: t.Iterable[requests.Response]) -> float:
     """Sleep to not exceed ratelimits for the given API responses.
 
     Return the duration slept for.
     """
-    remaining_reqs = [float(resp.headers['Requests-Remaining'])
-                      for resp in responses]
-    if not all(remaining_reqs):
-        # Not all of the responses have at least one request remaining.
-        resets = [float(resp.headers['Requests-Reset'])
-                  for resp in responses]
-        sleep_time = max(resets)
-        time.sleep(sleep_time)
-        return sleep_time
-
-    return 0
+    to_wait = ratelimit_duration_left(responses)
+    time.sleep(to_wait)
+    return to_wait
