@@ -1,5 +1,6 @@
 import random
 import reprlib
+import time
 
 from PIL import Image
 from loguru import logger
@@ -48,4 +49,8 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
         else:
             logger.debug('Doing nothing as no changes can be made.')
 
-        ratelimit_wait(responses)
+        slept_for = ratelimit_wait(responses)
+        if slept_for < 1:
+            # Avoids calling get_pixels excessively when we can't
+            # more changes.
+            time.sleep(3)
