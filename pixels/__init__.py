@@ -1,5 +1,5 @@
 from pathlib import Path
-from sys import stderr
+from sys import stdout
 
 from loguru import logger
 
@@ -11,7 +11,7 @@ MINIMAL_LOG_FORMAT = (
 )
 
 sink_handler = {
-    'sink': stderr,
+    'sink': stdout,
     'level': 'INFO',
     'backtrace': False,
     'diagnose': False,
