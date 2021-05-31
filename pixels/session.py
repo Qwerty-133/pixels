@@ -5,6 +5,8 @@ import typing as t
 
 import requests
 from loguru import logger
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 HEADERS = {'Authorization': f'Bearer {os.getenv("TOKEN")}'}
 API_URL = 'https://pixels.pythondiscord.com/'
@@ -13,9 +15,19 @@ API_URL = 'https://pixels.pythondiscord.com/'
 session = requests.Session()
 session.headers.update(HEADERS)
 
+RETRY = HTTPAdapter(
+    max_retries=Retry(total=21,
+                      status_forcelist=[500, 502, 503, 504],
+                      backoff_factor=0.0125)
+)
+
+session.mount(API_URL, RETRY)
+
 
 def request(func: t.Callable[..., requests.Response],
-            prefix_url: str = ''
+            /,
+            *,
+            prefix_url: str = API_URL
             ) -> t.Callable[[str], requests.Response]:
     """Handle logging and append the prefix url before each request."""
     @functools.wraps(func)
@@ -38,6 +50,6 @@ def request(func: t.Callable[..., requests.Response],
     return wrapper
 
 
-get = request(session.get, API_URL)
-post = request(session.post, API_URL)
-head = request(session.head, API_URL)
+get = request(session.get)
+post = request(session.post)
+head = request(session.head)
