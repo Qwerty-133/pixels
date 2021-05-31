@@ -32,7 +32,7 @@ def request(func: t.Callable[..., requests.Response],
     """Handle logging and append the prefix url before each request."""
     @functools.wraps(func)
     def wrapper(url: str, **kwargs: t.Any) -> requests.Response:
-        logger.debug('Sending {0} request to {1}', func.__name__.upper(), url)
+        logger.debug('Sending {0} request to {1}.', func.__name__.upper(), url)
         response = func(prefix_url + url, **kwargs)
 
         logger.opt(lazy=True).trace(

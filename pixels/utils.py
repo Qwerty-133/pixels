@@ -1,9 +1,11 @@
 import itertools
 import time
 import typing as t
+from dataclasses import dataclass
 
 import requests
 from PIL import Image
+from loguru import logger
 
 
 def to_hex(rgb: tuple[int, int, int]) -> str:
@@ -58,24 +60,123 @@ def image_differences(left: Image.Image,
     return differences
 
 
-def ratelimit_duration_left(responses: t.Iterable[requests.Response]) -> float:
-    """Return the duration to wait before sending another request."""
-    wait_periods = [float(resp.headers['Requests-Remaining'])
-                    for resp in responses]
-    if not all(duration > 0 for duration in wait_periods):
-        # Not all of the responses have at least one request remaining.
-        resets = [float(resp.headers['Requests-Reset'])
-                  for resp in responses]
-        return max(resets)
+@dataclass
+class RatelimitInfo:
+    """Easy access to ratelimits and cooldowns."""
 
-    return 0
+    response: requests.Response
+
+    def _header_getter(self, key: str) -> t.Optional[float]:
+        """Fetch the value of a key from the headers of the response.
+
+        If the value is found, it's converted to a float first.
+        If the value isn't found, None is returned.
+        """
+        try:
+            return float(self.response.headers[key])
+        except KeyError:
+            return None
+
+    @property
+    def remaining(self) -> t.Optional[float]:
+        """Return the value of the Requests-Remaining header."""
+        return self._header_getter('Requests-Remaining')
+
+    @property
+    def reset(self) -> t.Optional[float]:
+        """Return the value of the Requests-Reset header."""
+        return self._header_getter('Requests-Reset')
+
+    @property
+    def period(self) -> t.Optional[float]:
+        """Return the value of the Requests-Period header."""
+        return self._header_getter('Requests-Period')
+
+    @property
+    def limit(self) -> t.Optional[float]:
+        """Return the value of the Requests-Limit header."""
+        return self._header_getter('Requests-Limit')
+
+    @property
+    def cooldown_reset(self) -> t.Optional[float]:
+        """Return the value of the Cooldown-Reset header."""
+        return self._header_getter('Cooldown-Reset')
+
+
+def ratelimit_duration_left(responses: t.Iterable[requests.Response]) -> float:
+    """Return the time needed before the requests can be made again.
+
+    This gives back the minimum time needed; If the requests can be
+    made again immediately, 0 is returned.
+    """
+    duration_needed = 0
+
+    for resp in responses:
+        resp = RatelimitInfo(resp)
+
+        current_duration_needed = resp.cooldown_reset or resp.reset or 0
+        duration_needed = max(duration_needed, current_duration_needed)
+
+    return duration_needed
+
+
+def even_ratelimit_duration_left(responses: t.Iterable[requests.Response]
+                                 ) -> float:
+    """Return the time needed before the requests can be made again.
+
+    The time returned will be enough to not waste requests but
+    optimally enough to make requests in even intervals.
+    """
+    duration_needed = 0
+
+    for resp in responses:
+        resp = RatelimitInfo(resp)
+
+        if resp.cooldown_reset is not None:
+            current_duration_needed = resp.cooldown_reset
+        elif resp.remaining is not None:
+            # This request is rate-limited.
+            optimal_time = resp.period / resp.limit
+
+            if resp.remaining == 0:
+                if resp.limit != 1:
+                    # We have some leniency to try and stabilise this
+                    # duration and avoid a chain of hitting resets.
+                    current_duration_needed = resp.reset + optimal_time
+                else:
+                    current_duration_needed = resp.reset
+            elif resp.remaining >= resp.limit - 1:
+                # We're at the limit or about to hit the limit.
+                # Take the faster route.
+                current_duration_needed = min(resp.reset, optimal_time)
+            else:
+                current_duration_needed = optimal_time
+        else:
+            current_duration_needed = 0
+
+        duration_needed = max(duration_needed, current_duration_needed)
+
+    return duration_needed
 
 
 def ratelimit_wait(responses: t.Iterable[requests.Response]) -> float:
     """Sleep to not exceed ratelimits for the given API responses.
 
-    Return the duration slept for.
+    Return the duration slept for. This gives back the minimum time
+    needed; If the requests can be made again immediately, 0 is
+    returned.
     """
     to_wait = ratelimit_duration_left(responses)
+    time.sleep(to_wait)
+    return to_wait
+
+
+def even_ratelimit_wait(responses: t.Iterable[requests.Response]) -> float:
+    """Sleep to not exceed ratelimits for the given API responses.
+
+    Return the duration slept for. The time slept for will be enough to
+    not waste requests and to make requests in even intervals.
+    """
+    to_wait = even_ratelimit_duration_left(responses)
     time.sleep(to_wait)
     return to_wait

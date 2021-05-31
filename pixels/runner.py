@@ -5,8 +5,8 @@ import time
 from PIL import Image
 from loguru import logger
 from pixels.session import get, head, post
-from pixels.utils import (image_differences, ratelimit_duration_left,
-                          ratelimit_wait)
+from pixels.utils import (even_ratelimit_duration_left, even_ratelimit_wait,
+                          image_differences)
 
 
 def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
@@ -19,7 +19,7 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
     drawing = Image.open(path).convert('RGBA')
 
     current_ratelimits = [head('get_pixels'), head('set_pixel')]
-    to_wait = ratelimit_duration_left(current_ratelimits)
+    to_wait = even_ratelimit_duration_left(current_ratelimits)
     if to_wait:
         logger.info('Waiting for {0} seconds.', to_wait)
         time.sleep(to_wait)
@@ -55,6 +55,6 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
             logger.info(post_response.json()['message'])
             responses.append(post_response)
         else:
-            logger.debug('Doing nothing as no changes can be made.')
+            logger.info('Doing nothing as no changes can be made.')
 
-        ratelimit_wait(responses)
+        even_ratelimit_wait(responses)
