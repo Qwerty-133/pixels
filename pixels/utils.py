@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import requests
 from PIL import Image
-from loguru import logger
+from pixels.session import head
 
 
 def to_hex(rgb: tuple[int, int, int]) -> str:
@@ -114,10 +114,32 @@ def ratelimit_duration_left(responses: t.Iterable[requests.Response]) -> float:
     for resp in responses:
         resp = RatelimitInfo(resp)
 
-        current_duration_needed = resp.cooldown_reset or resp.reset or 0
+        if resp.remaining == 0 or resp.cooldown_reset:
+            current_duration_needed = resp.cooldown_reset or resp.reset
+        else:
+            current_duration_needed = 0
+
         duration_needed = max(duration_needed, current_duration_needed)
 
     return duration_needed
+
+
+def all_endpoints_wait(endpoints: t.Iterable[str]) -> None:
+    """Wait till Requests-Remaining for these endpoints is maxed out."""
+    endpoints = set(endpoints)
+
+    while True:
+        if not endpoints:
+            break
+
+        for endpoint in endpoints.copy():
+            resp = RatelimitInfo(head(endpoint))
+            if resp.remaining != resp.limit:
+                time.sleep(resp.reset)
+            else:
+                # The endpoint either wasn't ratelimited or is maxed
+                # out.
+                endpoints.remove(endpoint)
 
 
 def even_ratelimit_duration_left(responses: t.Iterable[requests.Response]
@@ -138,17 +160,14 @@ def even_ratelimit_duration_left(responses: t.Iterable[requests.Response]
             # This request is rate-limited.
             optimal_time = resp.period / resp.limit
 
-            if resp.remaining == 0:
-                if resp.limit != 1:
-                    # We have some leniency to try and stabilise this
-                    # duration and avoid a chain of hitting resets.
-                    current_duration_needed = resp.reset + optimal_time
-                else:
-                    current_duration_needed = resp.reset
-            elif resp.remaining >= resp.limit - 1:
+            if resp.remaining >= resp.limit - 1:
                 # We're at the limit or about to hit the limit.
                 # Take the faster route.
                 current_duration_needed = min(resp.reset, optimal_time)
+            elif resp.remaining == 0:
+                # We have some leniency to try and stabilise this
+                # duration and avoid a chain of hitting resets.
+                current_duration_needed = max(resp.reset, optimal_time)
             else:
                 current_duration_needed = optimal_time
         else:

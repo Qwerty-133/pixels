@@ -5,7 +5,8 @@ import time
 from PIL import Image
 from loguru import logger
 from pixels.session import get, head, post
-from pixels.utils import (even_ratelimit_duration_left, even_ratelimit_wait,
+from pixels.utils import (even_ratelimit_duration_left,
+                          even_ratelimit_wait,
                           image_differences)
 
 
@@ -23,6 +24,9 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
     if to_wait:
         logger.info('Waiting for {0} seconds.', to_wait)
         time.sleep(to_wait)
+
+    force_next_log = True
+    last_log = time.perf_counter()
 
     while True:
         board_response = get('get_pixels')
@@ -54,7 +58,14 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
             post_response = post('set_pixel', json=data)
             logger.info(post_response.json()['message'])
             responses.append(post_response)
+
+            # We just made a change, make sure to log that
+            # we're done when all the differences are gone.
+            force_next_log = True
         else:
-            logger.info('Doing nothing as no changes can be made.')
+            if force_next_log or time.perf_counter() - last_log >= 60:
+                force_next_log = False
+                logger.info('No changes can be made.')
+                last_log = time.perf_counter()
 
         even_ratelimit_wait(responses)
