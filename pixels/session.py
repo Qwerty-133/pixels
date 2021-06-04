@@ -15,13 +15,12 @@ API_URL = 'https://pixels.pythondiscord.com/'
 session = requests.Session()
 session.headers.update(HEADERS)
 
-RETRY = HTTPAdapter(
-    max_retries=Retry(total=21,
-                      status_forcelist=[500, 502, 503, 504],
-                      backoff_factor=0.0125)
-)
+RETRY = Retry(total=34,
+              status_forcelist=[500, 502, 503, 504],
+              backoff_factor=0.0125)
+RETRY.BACKOFF_MAX = 15 * 60
 
-session.mount(API_URL, RETRY)
+session.mount(API_URL, HTTPAdapter(max_retries=RETRY))
 
 
 def request(func: t.Callable[..., requests.Response],
