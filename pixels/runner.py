@@ -4,6 +4,7 @@ import time
 
 from PIL import Image
 from loguru import logger
+
 from pixels.session import get, head, post
 from pixels.utils import (even_ratelimit_duration_left,
                           even_ratelimit_wait,

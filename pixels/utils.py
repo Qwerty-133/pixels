@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import requests
 from PIL import Image
+
 from pixels.session import head
 
 

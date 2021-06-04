@@ -2,7 +2,7 @@
 docstring-convention=all
 import-order-style=pycharm
 max_doc_length=72
-module_import_names=pixels
+application_import_names=pixels
 ignore=
     B311,W503,E226,S311,T000
     # Missing Docstrings
