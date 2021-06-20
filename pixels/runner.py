@@ -5,8 +5,9 @@ import time
 from PIL import Image
 from loguru import logger
 
-from pixels.session import get, head, post
-from pixels.utils import (even_ratelimit_duration_left,
+from pixels.session import head, post
+from pixels.utils import (board_info,
+                          even_ratelimit_duration_left,
                           even_ratelimit_wait,
                           image_differences)
 
@@ -30,17 +31,9 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
     last_log = time.perf_counter()
 
     while True:
-        board_response = get('get_pixels')
-        size_json = get('get_size').json()
-        size = size_json['width'], size_json['height']
-        board = Image.frombytes(
-            'RGB',
-            size,
-            board_response.content
-        )
-
-        responses = [board_response]
-        differences = image_differences(board, drawing, offset=xy)
+        board = board_info()
+        responses = [board.get_pixels_response]
+        differences = list(image_differences(board.image, drawing, offset=xy))
 
         if differences:
             logger.opt(lazy=True).debug(
@@ -54,9 +47,7 @@ def main(xy: tuple[int, int], path: str, linear: bool = True) -> None:
                 to_change = random.choice(differences)
 
             logger.debug('Attempting to change {0}', to_change)
-
-            data = {'x': to_change.x, 'y': to_change.y, 'rgb': to_change.rgb}
-            post_response = post('set_pixel', json=data)
+            post_response = post('set_pixel', json=to_change.as_json())
             logger.info(post_response.json()['message'])
             responses.append(post_response)
 

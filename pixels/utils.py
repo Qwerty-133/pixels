@@ -6,27 +6,71 @@ from dataclasses import dataclass
 import requests
 from PIL import Image
 
-from pixels.session import head
+from pixels.session import get, head
 
 
-def to_hex(rgb: tuple[int, int, int]) -> str:
-    """Return the hex representation of an rgb tuple."""
-    return ''.join(format(colour, '02x') for colour in rgb)
+class Board(t.NamedTuple):
+    """Store get_pixels and get_size responses and the canvas image."""
+
+    image: Image.Image
+    get_pixels_response: requests.Response
+    get_size_response: requests.Response
 
 
-class Pixel(t.NamedTuple):
-    """Represents a pixel to be changed."""
+def board_info() -> Board:
+    """Store the current state of the canvas as an image.
+
+    The responses used are also bundled in the tuple.
+    """
+    pixels_resp = get('get_pixels')
+    size_resp = get('get_size')
+    size_json = size_resp.json()
+    size = size_json['width'], size_json['height']
+    image = Image.frombytes('RGB', size, pixels_resp.content)
+
+    return Board(image, pixels_resp, size_resp)
+
+
+class PixelJson(t.TypedDict):
+    """Type annotations for JSON that the API accepts."""
 
     x: int
     y: int
     rgb: str
 
 
+@dataclass
+class Pixel():
+    """Represents a pixel."""
+
+    coords: tuple[int, int]
+    rgb: tuple[int, int, int]
+
+    @property
+    def x(self) -> int:
+        """Return the x coordinate of this pixel."""
+        return self.coords[0]
+
+    @property
+    def y(self) -> int:
+        """Return the x coordinate of this pixel."""
+        return self.coords[1]
+
+    @property
+    def hex(self) -> str:
+        """Return the colour as a hex string."""
+        return ''.join(format(colour, '02x') for colour in self.rgb)
+
+    def as_json(self) -> PixelJson:
+        """Return the data of the pixel as valid JSON for set_pixel."""
+        return {'x': self.x, 'y': self.y, 'rgb': self.hex}
+
+
 def image_differences(left: Image.Image,
                       right: Image.Image,
                       /,
                       offset: tuple[int, int] = (0, 0)
-                      ) -> list[Pixel]:
+                      ) -> t.Iterator[Pixel]:
     """Fetch pixels to change in the left image to obtain the right.
 
     The images must be in the RGB mode. Although the right image can be
@@ -43,7 +87,6 @@ def image_differences(left: Image.Image,
     second_width, second_height = right.size
     offset_x, offset_y = offset
 
-    differences: list[Pixel] = []
     for x, y in itertools.product(range(second_width), range(second_height)):
         left_coord = offset_x + x, offset_y + y
         left_pixel = list(left.getpixel(left_coord))
@@ -56,9 +99,7 @@ def image_differences(left: Image.Image,
                 right_pixel = left_pixel
 
         if left_pixel != right_pixel:
-            differences.append(Pixel(*left_coord, to_hex(right_pixel)))
-
-    return differences
+            yield Pixel(left_coord, right_pixel)
 
 
 @dataclass
